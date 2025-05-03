@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Découpe PDF en 4 étiquettes</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    input, button { margin-bottom: 1rem; display: block; }
+    canvas { display: none; }
+    .output img { width: 200px; height: auto; margin-bottom: 0.5rem; display: block; }
+    .output a { display: block; margin-bottom: 1rem; color: blue; }
+  </style>
+</head>
+<body>
+  <h2>Choisir un fichier PDF</h2>
+  <input type="file" id="fileInput" accept="application/pdf">
+  <div class="output"></div>
+
+  <script>
+    const input = document.getElementById('fileInput');
+    const output = document.querySelector('.output');
+
+    input.addEventListener('change', async (event) => {
+      output.innerHTML = '';
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 2 });
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        const parts = [
+          [0, 0],
+          [canvas.width / 2, 0],
+          [0, canvas.height / 2],
+          [canvas.width / 2, canvas.height / 2],
+        ];
+
+        const w = canvas.width / 2;
+        const h = canvas.height / 2;
+
+        for (let i = 0; i < parts.length; i++) {
+          const [x, y] = parts[i];
+          const partCanvas = document.createElement('canvas');
+          partCanvas.width = w;
+          partCanvas.height = h;
+          const ctx = partCanvas.getContext('2d');
+          ctx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+
+          const dataURL = partCanvas.toDataURL('image/png');
+          const img = document.createElement('img');
+          img.src = dataURL;
+
+          const link = document.createElement('a');
+          const fileName = `page${pageNum}_label${i + 1}.png`;
+          link.download = fileName;
+          link.href = dataURL;
+          link.textContent = `📥 Télécharger ${fileName}`;
+
+          output.appendChild(img);
+          output.appendChild(link);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
