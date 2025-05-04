@@ -4,12 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Découpe PDF en 4 étiquettes</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script>
+    // pdf.js core
+    window.pdfjsLib = window.pdfjsLib || {};
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script>
+    // Fix for worker load error
+    pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  </script>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
-    input, button { margin-bottom: 1rem; display: block; }
-    canvas { display: none; }
-    .output img { width: 200px; height: auto; margin-bottom: 0.5rem; display: block; }
+    input { margin-bottom: 1rem; display: block; }
     .output a { display: block; margin-bottom: 1rem; color: blue; }
   </style>
 </head>
@@ -27,49 +35,48 @@
       const file = event.target.files[0];
       if (!file) return;
 
+      const fileNameBase = file.name.replace(/\.pdf$/i, '');
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 2 });
+      // Load the PDF using pdf-lib once for page copying
+      const origPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
 
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+      // Load the PDF using pdf.js for dimension info
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdfDoc = await loadingTask.promise;
 
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1 });
 
-        const parts = [
-          [0, 0],
-          [canvas.width / 2, 0],
-          [0, canvas.height / 2],
-          [canvas.width / 2, canvas.height / 2],
+        const width = viewport.width;
+        const height = viewport.height;
+        const regions = [
+          { x: 0, y: height / 2, w: width / 2, h: height / 2 },       // Haut gauche
+          { x: width / 2, y: height / 2, w: width / 2, h: height / 2 }, // Haut droite
+          { x: 0, y: 0, w: width / 2, h: height / 2 },                  // Bas gauche
+          { x: width / 2, y: 0, w: width / 2, h: height / 2 }           // Bas droite
         ];
 
-        const w = canvas.width / 2;
-        const h = canvas.height / 2;
+        for (let i = 0; i < regions.length; i++) {
+          const region = regions[i];
+          const newPdf = await PDFLib.PDFDocument.create();
+          const [pageClone] = await newPdf.copyPages(origPdfDoc, [pageNum - 1]);
+          const subPage = pageClone;
 
-        for (let i = 0; i < parts.length; i++) {
-          const [x, y] = parts[i];
-          const partCanvas = document.createElement('canvas');
-          partCanvas.width = w;
-          partCanvas.height = h;
-          const ctx = partCanvas.getContext('2d');
-          ctx.drawImage(canvas, x, y, w, h, 0, 0, w, h);
+          subPage.setCropBox(region.x, region.y, region.w, region.h);
+          subPage.setMediaBox(region.x, region.y, region.w, region.h);
+          newPdf.addPage(subPage);
 
-          const dataURL = partCanvas.toDataURL('image/png');
-          const img = document.createElement('img');
-          img.src = dataURL;
+          const pdfBytes = await newPdf.save();
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
 
           const link = document.createElement('a');
-          const fileName = `page${pageNum}_label${i + 1}.png`;
-          link.download = fileName;
-          link.href = dataURL;
-          link.textContent = `📥 Télécharger ${fileName}`;
+          link.href = url;
+          link.download = `${fileNameBase}_page${pageNum}_label${i + 1}.pdf`;
+          link.textContent = `📅 Télécharger ${fileNameBase}_page${pageNum}_label${i + 1}.pdf`;
 
-          output.appendChild(img);
           output.appendChild(link);
         }
       }
