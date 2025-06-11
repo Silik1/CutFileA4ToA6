@@ -2,101 +2,117 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Extraction PDF - Quart haut gauche</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 2em;
-      background: #f9f9f9;
-    }
-    .section {
-      margin-bottom: 2em;
-    }
-    canvas {
-      display: block;
-      margin-top: 1em;
-      border: 1px solid #ccc;
-    }
-    a.download-link {
-      display: inline-block;
-      margin-top: 0.5em;
-      padding: 0.5em 1em;
-      background: #007bff;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-    }
-  </style>
-</head>
-<body>
-
-  <h1>Extraire et télécharger une zone de PDF</h1>
-
-  <div class="section">
-    <label for="labelPdf">Fichier Label (PDF) :</label><br>
-    <input type="file" id="labelPdf" accept="application/pdf">
-    <div id="labelResult"></div>
-  </div>
-
-  <div class="section">
-    <label for="cn23Pdf">Fichier CN23 (PDF) :</label><br>
-    <input type="file" id="cn23Pdf" accept="application/pdf">
-    <div id="cn23Result"></div>
-  </div>
-
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-  <script>
-    async function extractAndDownload(file, container, filename) {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1);
-
-      const scale = 5;
-      const viewport = page.getViewport({ scale });
-
-      const fullCanvas = document.createElement('canvas');
-      fullCanvas.width = viewport.width;
-      fullCanvas.height = viewport.height;
-      const fullCtx = fullCanvas.getContext('2d');
-
-      await page.render({ canvasContext: fullCtx, viewport }).promise;
-
-      const cropCanvas = document.createElement('canvas');
-      const cropCtx = cropCanvas.getContext('2d');
-
-      const cropW = fullCanvas.width / 2;
-      const cropH = fullCanvas.height / 2;
-
-      cropCanvas.width = cropW;
-      cropCanvas.height = cropH;
-
-      cropCtx.drawImage(fullCanvas, 0, 0, cropW, cropH, 0, 0, cropW, cropH);
-
-      // Affiche le résultat
-      container.innerHTML = '';
-      container.appendChild(cropCanvas);
-
-      // Crée un lien de téléchargement
-      const link = document.createElement('a');
-      link.href = cropCanvas.toDataURL('image/png');
-      link.download = filename;
-      link.className = 'download-link';
-      link.textContent = `📥 Télécharger ${filename}`;
-      container.appendChild(link);
-    }
-
-    document.getElementById('labelPdf').addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (file) extractAndDownload(file, document.getElementById('labelResult'), 'label.png');
-    });
-
-    document.getElementById('cn23Pdf').addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (file) extractAndDownload(file, document.getElementById('cn23Result'), 'cn23.png');
-    });
-  </script>
-
-</body>
-</html>
+    <title>Extraire PDF - Quart haut gauche</title>
+      <style>
+          body {
+                font-family: sans-serif;
+                      padding: 2em;
+                            background: #f9f9f9;
+                                }
+                                    .section {
+                                          margin-bottom: 2em;
+                                              }
+                                                  canvas {
+                                                        display: block;
+                                                              margin-top: 1em;
+                                                                    border: 1px solid #ccc;
+                                                                        }
+                                                                            a.download-link {
+                                                                                  display: inline-block;
+                                                                                        margin-top: 0.5em;
+                                                                                              padding: 0.5em 1em;
+                                                                                                    background: #28a745;
+                                                                                                          color: white;
+                                                                                                                text-decoration: none;
+                                                                                                                      border-radius: 5px;
+                                                                                                                          }
+                                                                                                                            </style>
+                                                                                                                            </head>
+                                                                                                                            <body>
+                                                                                                                            
+                                                                                                                              <h1>Extraction + Téléchargement PDF</h1>
+                                                                                                                              
+                                                                                                                                <div class="section">
+                                                                                                                                    <label for="labelPdf">Fichier Label (PDF) :</label><br>
+                                                                                                                                        <input type="file" id="labelPdf" accept="application/pdf">
+                                                                                                                                            <div id="labelResult"></div>
+                                                                                                                                              </div>
+                                                                                                                                              
+                                                                                                                                                <div class="section">
+                                                                                                                                                    <label for="cn23Pdf">Fichier CN23 (PDF) :</label><br>
+                                                                                                                                                        <input type="file" id="cn23Pdf" accept="application/pdf">
+                                                                                                                                                            <div id="cn23Result"></div>
+                                                                                                                                                              </div>
+                                                                                                                                                              
+                                                                                                                                                                <!-- PDF.js -->
+                                                                                                                                                                  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+                                                                                                                                                                    <!-- jsPDF -->
+                                                                                                                                                                      <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+                                                                                                                                                                      
+                                                                                                                                                                        <script>
+                                                                                                                                                                            const { jsPDF } = window.jspdf;
+                                                                                                                                                                            
+                                                                                                                                                                                async function extractAndDownloadAsPDF(file, container, filename) {
+                                                                                                                                                                                      const arrayBuffer = await file.arrayBuffer();
+                                                                                                                                                                                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                                                                                                                                                                                                  const page = await pdf.getPage(1);
+                                                                                                                                                                                                  
+                                                                                                                                                                                                        const scale = 2;
+                                                                                                                                                                                                              const viewport = page.getViewport({ scale });
+                                                                                                                                                                                                              
+                                                                                                                                                                                                                    const fullCanvas = document.createElement('canvas');
+                                                                                                                                                                                                                          fullCanvas.width = viewport.width;
+                                                                                                                                                                                                                                fullCanvas.height = viewport.height;
+                                                                                                                                                                                                                                      const fullCtx = fullCanvas.getContext('2d');
+                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                            await page.render({ canvasContext: fullCtx, viewport }).promise;
+                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                  const cropCanvas = document.createElement('canvas');
+                                                                                                                                                                                                                                                        const cropCtx = cropCanvas.getContext('2d');
+                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                              const cropW = fullCanvas.width / 2;
+                                                                                                                                                                                                                                                                    const cropH = fullCanvas.height / 2;
+                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                          cropCanvas.width = cropW;
+                                                                                                                                                                                                                                                                                cropCanvas.height = cropH;
+                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                      cropCtx.drawImage(fullCanvas, 0, 0, cropW, cropH, 0, 0, cropW, cropH);
+                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                            // Affichage dans la page
+                                                                                                                                                                                                                                                                                                  container.innerHTML = '';
+                                                                                                                                                                                                                                                                                                        container.appendChild(cropCanvas);
+                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                              // Génération du PDF avec jsPDF
+                                                                                                                                                                                                                                                                                                                    const pdfDoc = new jsPDF({
+                                                                                                                                                                                                                                                                                                                            orientation: 'portrait',
+                                                                                                                                                                                                                                                                                                                                    unit: 'px',
+                                                                                                                                                                                                                                                                                                                                            format: [cropW, cropH]
+                                                                                                                                                                                                                                                                                                                                                  });
+                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                        const imageData = cropCanvas.toDataURL('image/png');
+                                                                                                                                                                                                                                                                                                                                                              pdfDoc.addImage(imageData, 'PNG', 0, 0, cropW, cropH);
+                                                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                    const blob = pdfDoc.output('blob');
+                                                                                                                                                                                                                                                                                                                                                                          const blobUrl = URL.createObjectURL(blob);
+                                                                                                                                                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                const link = document.createElement('a');
+                                                                                                                                                                                                                                                                                                                                                                                      link.href = blobUrl;
+                                                                                                                                                                                                                                                                                                                                                                                            link.download = filename;
+                                                                                                                                                                                                                                                                                                                                                                                                  link.className = 'download-link';
+                                                                                                                                                                                                                                                                                                                                                                                                        link.textContent = `📥 Télécharger ${filename}`;
+                                                                                                                                                                                                                                                                                                                                                                                                              container.appendChild(link);
+                                                                                                                                                                                                                                                                                                                                                                                                                  }
+                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                                                      document.getElementById('labelPdf').addEventListener('change', e => {
+                                                                                                                                                                                                                                                                                                                                                                                                                            const file = e.target.files[0];
+                                                                                                                                                                                                                                                                                                                                                                                                                                  if (file) extractAndDownloadAsPDF(file, document.getElementById('labelResult'), 'label.pdf');
+                                                                                                                                                                                                                                                                                                                                                                                                                                      });
+                                                                                                                                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                                                                          document.getElementById('cn23Pdf').addEventListener('change', e => {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                const file = e.target.files[0];
+                                                                                                                                                                                                                                                                                                                                                                                                                                                      if (file) extractAndDownloadAsPDF(file, document.getElementById('cn23Result'), 'cn23.pdf');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                          });
+                                                                                                                                                                                                                                                                                                                                                                                                                                                            </script>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                                                                                            </body>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                            </html>>
