@@ -1,86 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Découpe PDF en 4 étiquettes</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-  <script>
-    // pdf.js core
-    window.pdfjsLib = window.pdfjsLib || {};
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  <script>
-    // Fix for worker load error
-    pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-  </script>
+  <title>Extraction PDF - Quart haut gauche</title>
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    input { margin-bottom: 1rem; display: block; }
-    .output a { display: block; margin-bottom: 1rem; color: blue; }
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+      background: #f9f9f9;
+    }
+    .section {
+      margin-bottom: 2em;
+    }
+    canvas {
+      display: block;
+      margin-top: 1em;
+      border: 1px solid #ccc;
+    }
+    a.download-link {
+      display: inline-block;
+      margin-top: 0.5em;
+      padding: 0.5em 1em;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
-  <h2>Choisir un fichier PDF</h2>
-  <input type="file" id="fileInput" accept="application/pdf">
-  <div class="output"></div>
+
+  <h1>Extraire et télécharger une zone de PDF</h1>
+
+  <div class="section">
+    <label for="labelPdf">Fichier Label (PDF) :</label><br>
+    <input type="file" id="labelPdf" accept="application/pdf">
+    <div id="labelResult"></div>
+  </div>
+
+  <div class="section">
+    <label for="cn23Pdf">Fichier CN23 (PDF) :</label><br>
+    <input type="file" id="cn23Pdf" accept="application/pdf">
+    <div id="cn23Result"></div>
+  </div>
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <script>
-    const input = document.getElementById('fileInput');
-    const output = document.querySelector('.output');
-
-    input.addEventListener('change', async (event) => {
-      output.innerHTML = '';
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const fileNameBase = file.name.replace(/\.pdf$/i, '');
+    async function extractAndDownload(file, container, filename) {
       const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1);
 
-      // Load the PDF using pdf-lib once for page copying
-      const origPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+      const scale = 5;
+      const viewport = page.getViewport({ scale });
 
-      // Load the PDF using pdf.js for dimension info
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdfDoc = await loadingTask.promise;
+      const fullCanvas = document.createElement('canvas');
+      fullCanvas.width = viewport.width;
+      fullCanvas.height = viewport.height;
+      const fullCtx = fullCanvas.getContext('2d');
 
-      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-        const page = await pdfDoc.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1 });
+      await page.render({ canvasContext: fullCtx, viewport }).promise;
 
-        const width = viewport.width;
-        const height = viewport.height;
-        const regions = [
-          { x: 0, y: height / 2, w: width / 2, h: height / 2 },       // Haut gauche
-          { x: width / 2, y: height / 2, w: width / 2, h: height / 2 }, // Haut droite
-          { x: 0, y: 0, w: width / 2, h: height / 2 },                  // Bas gauche
-          { x: width / 2, y: 0, w: width / 2, h: height / 2 }           // Bas droite
-        ];
+      const cropCanvas = document.createElement('canvas');
+      const cropCtx = cropCanvas.getContext('2d');
 
-        for (let i = 0; i < regions.length; i++) {
-          const region = regions[i];
-          const newPdf = await PDFLib.PDFDocument.create();
-          const [pageClone] = await newPdf.copyPages(origPdfDoc, [pageNum - 1]);
-          const subPage = pageClone;
+      const cropW = fullCanvas.width / 2;
+      const cropH = fullCanvas.height / 2;
 
-          subPage.setCropBox(region.x, region.y, region.w, region.h);
-          subPage.setMediaBox(region.x, region.y, region.w, region.h);
-          newPdf.addPage(subPage);
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
 
-          const pdfBytes = await newPdf.save();
-          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
+      cropCtx.drawImage(fullCanvas, 0, 0, cropW, cropH, 0, 0, cropW, cropH);
 
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${fileNameBase}_page${pageNum}_label${i + 1}.pdf`;
-          link.textContent = `📅 Télécharger ${fileNameBase}_page${pageNum}_label${i + 1}.pdf`;
+      // Affiche le résultat
+      container.innerHTML = '';
+      container.appendChild(cropCanvas);
 
-          output.appendChild(link);
-        }
-      }
+      // Crée un lien de téléchargement
+      const link = document.createElement('a');
+      link.href = cropCanvas.toDataURL('image/png');
+      link.download = filename;
+      link.className = 'download-link';
+      link.textContent = `📥 Télécharger ${filename}`;
+      container.appendChild(link);
+    }
+
+    document.getElementById('labelPdf').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) extractAndDownload(file, document.getElementById('labelResult'), 'label.png');
+    });
+
+    document.getElementById('cn23Pdf').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) extractAndDownload(file, document.getElementById('cn23Result'), 'cn23.png');
     });
   </script>
+
 </body>
 </html>
