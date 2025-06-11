@@ -2,21 +2,21 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Extraction PDF - Haute résolution</title>
+  <title>Extraire zone PDF - 15x10cm</title>
   <style>
     body {
       font-family: sans-serif;
-      padding: 2em;
+      padding: 1em;
       background: #f9f9f9;
     }
-    .section {
-      margin-bottom: 2em;
+    input {
+      margin-bottom: 1em;
     }
     canvas {
       display: block;
-      margin-top: 1em;
-      border: 1px solid #ccc;
+      margin: 1em 0;
       max-width: 100%;
+      border: 1px solid #ccc;
     }
     a.download-link {
       display: inline-block;
@@ -31,19 +31,15 @@
 </head>
 <body>
 
-  <h1>Extraire PDF (quart supérieur gauche - haute résolution)</h1>
+  <h2>Extraire PDF (coin haut gauche - format 15×10cm)</h2>
 
-  <div class="section">
-    <label for="labelPdf">Fichier Label (PDF) :</label><br>
-    <input type="file" id="labelPdf" accept="application/pdf">
-    <div id="labelResult"></div>
-  </div>
+  <label for="labelPdf">Label PDF :</label><br>
+  <input type="file" id="labelPdf" accept="application/pdf"><br>
+  <div id="labelResult"></div>
 
-  <div class="section">
-    <label for="cn23Pdf">Fichier CN23 (PDF) :</label><br>
-    <input type="file" id="cn23Pdf" accept="application/pdf">
-    <div id="cn23Result"></div>
-  </div>
+  <label for="cn23Pdf">CN23 PDF :</label><br>
+  <input type="file" id="cn23Pdf" accept="application/pdf"><br>
+  <div id="cn23Result"></div>
 
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -58,7 +54,7 @@
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const page = await pdf.getPage(1);
 
-      const scale = 5;  // ⇦ HAUTE RÉSOLUTION
+      const scale = 5; // haute résolution
       const viewport = page.getViewport({ scale });
 
       const fullCanvas = document.createElement('canvas');
@@ -73,25 +69,38 @@
 
       const cropW = fullCanvas.width / 2;
       const cropH = fullCanvas.height / 2;
-
       cropCanvas.width = cropW;
       cropCanvas.height = cropH;
 
       cropCtx.drawImage(fullCanvas, 0, 0, cropW, cropH, 0, 0, cropW, cropH);
 
-      // Affiche l'aperçu
       container.innerHTML = '';
       container.appendChild(cropCanvas);
 
-      // Génère le PDF (dimensions réelles du canvas)
+      // Convertir en PDF 150mm x 100mm
+      const pdfWidth = 150;
+      const pdfHeight = 100;
       const pdfDoc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [cropW, cropH]
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight]
       });
 
       const imageData = cropCanvas.toDataURL('image/png');
-      pdfDoc.addImage(imageData, 'PNG', 0, 0, cropW, cropH);
+      const imgProps = pdfDoc.getImageProperties(imageData);
+      const imgRatio = imgProps.width / imgProps.height;
+
+      let imgWidth = pdfWidth;
+      let imgHeight = imgWidth / imgRatio;
+      if (imgHeight > pdfHeight) {
+        imgHeight = pdfHeight;
+        imgWidth = imgHeight * imgRatio;
+      }
+
+      const x = (pdfWidth - imgWidth) / 2;
+      const y = (pdfHeight - imgHeight) / 2;
+
+      pdfDoc.addImage(imageData, 'PNG', x, y, imgWidth, imgHeight);
 
       const blob = pdfDoc.output('blob');
       const blobUrl = URL.createObjectURL(blob);
